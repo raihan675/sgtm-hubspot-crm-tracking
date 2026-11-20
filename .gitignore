@@ -1,0 +1,11 @@
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Logs and environment
+*.log
+.env
+.env.*
+
+# HubSpot local temporary configs (if any)
+.hscli/

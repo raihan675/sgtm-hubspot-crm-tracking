@@ -3,7 +3,7 @@
   "type": "webhooks",
   "config": {
     "settings": {
-      "targetUrl": "https://otdbovqi.in.stape.io/hubspot-webhook",
+      "targetUrl": "https://rkfznswz.au.stape.io/hubspot-webhook",
       "maxConcurrentRequests": 10
     },
     "subscriptions": {

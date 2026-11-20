@@ -1,5 +1,5 @@
 {
-  "uid": "sgtm_crm_tracking_webhooks",
+  "uid": "sgtm_hubspot_crm_tracking_webhooks",
   "type": "webhooks",
   "config": {
     "settings": {

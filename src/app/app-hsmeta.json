@@ -1,9 +1,9 @@
 {
-  "uid": "sgtm_crm_tracking_app",
+  "uid": "sgtm_hubspot_crm_tracking_app",
   "type": "app",
   "config": {
+    "name": "sGTM HubSpot CRM Tracking",
     "description": "HubSpot CRM event tracking to Server-Side GTM on Stape.io",
-    "name": "sgtm-crm-tracking-App",
     "distribution": "private",
     "auth": {
       "type": "static",

@@ -1,4 +1,4 @@
-# HubSpot CRM to Server-Side GTM (sGTM) Tracking Pipeline
+# sGTM HubSpot CRM Tracking
 
 Universal enterprise tracking integration connecting HubSpot CRM lifecycle stages, lead statuses, deal pipeline milestones, and advertising click attribution (Meta, Google, ChatGPT, TikTok, LinkedIn, Bing, Reddit) directly to Server-Side Google Tag Manager.
 
@@ -7,7 +7,7 @@ Universal enterprise tracking integration connecting HubSpot CRM lifecycle stage
 ## Repository Structure
 
 ```
-sgtm-crm-tracking/
+sgtm-hubspot-crm-tracking/
 ├── templates/
 │   └── hubspot-crm-ingest-client.tpl   # Custom Client Template for sGTM
 ├── src/
@@ -71,8 +71,8 @@ hs project deploy --account=client_acme
 
 ### 5. Get the Service Key (Access Token)
 1. In the client's HubSpot portal, click **Settings (⚙️)** in the top menu.
-2. In the left navigation, go to **Integrations** $\rightarrow$ **Private Apps** (or **Development** $\rightarrow$ **Projects** $\rightarrow$ `sgtm-crm-tracking`).
-3. Click `sgtm-crm-tracking-App` $\rightarrow$ open the **Auth** tab.
+2. In the left navigation, go to **Integrations** $\rightarrow$ **Private Apps** (or **Development** $\rightarrow$ **Projects** $\rightarrow$ `sgtm-hubspot-crm-tracking`).
+3. Click `sGTM HubSpot CRM Tracking` $\rightarrow$ open the **Auth** tab.
 4. Click **Show token** and copy the access token (`pat-na1-...`).
 
 ---

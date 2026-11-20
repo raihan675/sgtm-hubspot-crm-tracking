@@ -32,24 +32,25 @@ sgtm-hubspot-crm-tracking/
 
 ---
 
-### 2. Connect Your Client's HubSpot Portal
+### 2. Connect Your Client's HubSpot Account
 From your terminal, authenticate with the client's portal:
 ```bash
 hs account auth
 ```
 - A browser opens: log into the target HubSpot account and approve the connection.
-- In terminal, give the account an alias (e.g., `client_acme`).
+- In terminal, give the account an **Account Name** (e.g., `ail-and-splatt-lawyers` or your client's business name).
 
-Verify connected accounts:
+To view all connected account names on your computer:
 ```bash
 hs account list
 ```
+*(Shows the exact **Account Name** and numeric **Portal ID** for each connected client).*
 
 ---
 
 ### 3. Set the Client's sGTM Webhook Endpoint
 Open `src/app/webhooks/webhooks-hsmeta.json` in any code or text editor:
-Replace `targetUrl` with the client's sGTM Stape endpoint:
+Replace `targetUrl` on line 6 with the client's sGTM Stape endpoint:
 ```json
 "targetUrl": "https://<client-container>.in.stape.io/hubspot-webhook"
 ```
@@ -57,15 +58,23 @@ Save the file.
 
 ---
 
-### 4. Deploy to the Client's Portal
-Run the following commands inside this repository folder:
-```bash
-# Upload project files to the client portal
-hs project upload --account=client_acme
+### 4. Deploy to the Client's Account
+Run the following commands inside this repository folder, replacing `<ACCOUNT_NAME>` with your client's account name (e.g., `ail-and-splatt-lawyers`) or their numeric Portal ID (e.g., `50516291`):
 
-# Deploy to production in the client portal
-hs project deploy --account=client_acme
+```bash
+# Upload project files to the client account
+hs project upload --account=<ACCOUNT_NAME>
+
+# Deploy to production in the client account
+hs project deploy --account=<ACCOUNT_NAME>
 ```
+
+> [!TIP]
+> **Pro Tip**: If the client account was set as your default account during `hs account auth`, you can omit `--account=` completely and simply run:
+> ```bash
+> hs project upload
+> hs project deploy
+> ```
 
 ---
 

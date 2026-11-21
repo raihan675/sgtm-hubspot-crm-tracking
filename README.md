@@ -92,7 +92,7 @@ hs project deploy --account=<ACCOUNT_NAME>
 3. In the top right corner, click **⋮ (three dots)** $\rightarrow$ **Import**.
 4. Choose `templates/hubspot-crm-ingest-client.tpl` from this repository.
 5. Click **Save** and close the template editor.
-6. In sGTM, go to **Clients** $\rightarrow$ click **New** $\rightarrow$ select **HubSpot CRM Ingest Client**.
+6. In sGTM, go to **Clients** $\rightarrow$ click **New** $\rightarrow$ select **HubSpot CRM Client**.
 7. Paste the copied token into **HubSpot Service Key / Access Token**.
 8. Enable the advertising platforms the client uses (Meta, Google, ChatGPT, etc.).
 9. Click **Save** and **Publish** (Submit) the container.

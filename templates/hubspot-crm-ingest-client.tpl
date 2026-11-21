@@ -5,7 +5,7 @@ ___INFO___
   "id": "cvt_temp_public_id",
   "version": 1,
   "securityGroups": [],
-  "displayName": "HubSpot CRM Ingest Client",
+  "displayName": "HubSpot CRM Client",
   "description": "Enterprise HubSpot CRM client with customizable attribution, clean user data, and zero empty parameters.",
   "containerContexts": [
     "SERVER"
@@ -350,7 +350,7 @@ function getRequestedPropertyList() {
   const list = [
     'email', 'firstname', 'lastname', 'phone', 'mobilephone',
     'address', 'city', 'state', 'zip', 'country', 'ip_country', 'ip_country_code',
-    'associatedcompanyid', 'hs_object_id',
+    'associatedcompanyid', 'hs_object_id', 'createdate',
     'lifecyclestage', 'hs_lead_status',
     'num_associated_deals', 'num_conversion_events', 'num_unique_conversion_events',
     'first_conversion_date', 'first_conversion_event_name',
@@ -431,18 +431,62 @@ function buildAttributionObject(props, occurredAt, eventData) {
   }
 
   if (enableMetaAds) {
+    let rawFbc = props.fbc || '';
+    let rawFbp = props.fbp || '';
     let fbclidVal = props.hs_facebook_click_id || props.first_touch_fbclid || props.fbclid || '';
     if (!fbclidVal && props.hs_analytics_last_url) {
       fbclidVal = extractUrlParam(props.hs_analytics_last_url, 'fbclid');
     }
-    const fbcVal = props.fbc || (fbclidVal ? ('fb.1.' + occurredAt + '.' + fbclidVal) : '');
-    const fbpVal = props.fbp || '';
+    if (!fbclidVal && props.hs_analytics_first_url) {
+      fbclidVal = extractUrlParam(props.hs_analytics_first_url, 'fbclid');
+    }
+
+    let finalFbc = '';
+    // Priority 1: Exact authentic Meta cookie from browser (e.g. fb.1.<timestamp>.<fbclid>)
+    if (rawFbc && rawFbc.indexOf('fb.') === 0) {
+      finalFbc = rawFbc;
+      if (!fbclidVal) {
+        const parts = rawFbc.split('.');
+        if (parts.length >= 4) {
+          const prefixLen = parts[0].length + 1 + parts[1].length + 1 + parts[2].length + 1;
+          fbclidVal = rawFbc.substring(prefixLen);
+        }
+      }
+    } else if (rawFbc && rawFbc.indexOf('fb.') !== 0) {
+      if (!fbclidVal) {
+        fbclidVal = rawFbc;
+      }
+    }
+
+    if (fbclidVal && fbclidVal.indexOf('fb.') === 0) {
+      if (!finalFbc) finalFbc = fbclidVal;
+      const parts = fbclidVal.split('.');
+      if (parts.length >= 4) {
+        const prefixLen = parts[0].length + 1 + parts[1].length + 1 + parts[2].length + 1;
+        fbclidVal = fbclidVal.substring(prefixLen);
+      }
+    }
+
+    // Priority 2: Synthesize Meta CAPI compliant fbc from fbclid using contact creation time
+    if (!finalFbc && fbclidVal) {
+      let creationTimeMs = occurredAt;
+      if (props.createdate) {
+        const cdNum = parseNumber(props.createdate);
+        if (cdNum > 1000000000000) {
+          creationTimeMs = cdNum;
+        } else if (cdNum > 0 && cdNum < 1000000000000) {
+          creationTimeMs = cdNum * 1000;
+        }
+      }
+      finalFbc = 'fb.1.' + creationTimeMs + '.' + fbclidVal;
+    }
+
     addParam('fbclid', fbclidVal);
-    addParam('fbc', fbcVal);
-    addParam('fbp', fbpVal);
+    addParam('fbc', finalFbc);
+    addParam('fbp', rawFbp);
     if (fbclidVal) eventData.fbclid = fbclidVal;
-    if (fbcVal) eventData.fbc = fbcVal;
-    if (fbpVal) eventData.fbp = fbpVal;
+    if (finalFbc) eventData.fbc = finalFbc;
+    if (rawFbp) eventData.fbp = rawFbp;
   }
 
   if (enableChatGptAds) {

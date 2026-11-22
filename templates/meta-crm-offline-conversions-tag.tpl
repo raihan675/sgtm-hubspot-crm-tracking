@@ -361,11 +361,20 @@ function isSha256Hex(str) {
 
 function cleanString(val) {
   if (!val || typeof val !== 'string') return '';
-  // Trim spaces without regex literals
   let start = 0;
+  for (let i = 0; i < val.length; i++) {
+    if (val.charAt(i) !== ' ') {
+      start = i;
+      break;
+    }
+  }
   let end = val.length;
-  while (start < end && val.charAt(start) === ' ') start++;
-  while (end > start && val.charAt(end - 1) === ' ') end--;
+  for (let j = val.length - 1; j >= start; j--) {
+    if (val.charAt(j) !== ' ') {
+      end = j + 1;
+      break;
+    }
+  }
   return val.substring(start, end);
 }
 

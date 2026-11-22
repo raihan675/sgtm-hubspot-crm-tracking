@@ -485,8 +485,14 @@ function buildAttributionObject(props, occurredAt, eventData) {
     addParam('fbc', finalFbc);
     addParam('fbp', rawFbp);
     if (fbclidVal) eventData.fbclid = fbclidVal;
-    if (finalFbc) eventData.fbc = finalFbc;
-    if (rawFbp) eventData.fbp = rawFbp;
+    if (finalFbc) {
+      eventData.fbc = finalFbc;
+      if (eventData.user_data) eventData.user_data.fbc = finalFbc;
+    }
+    if (rawFbp) {
+      eventData.fbp = rawFbp;
+      if (eventData.user_data) eventData.user_data.fbp = rawFbp;
+    }
   }
 
   if (enableChatGptAds) {
@@ -728,6 +734,7 @@ function enrichAndDispatchContact(contactId, propName, propValue, occurredAt, on
 
     const eventData = {
       event_name: eventName,
+      action_source: 'system_generated',
       event_source_category: (propName === 'lifecyclestage') ? 'lifecycle_stage' : ((propName === 'hs_lead_status') ? 'lead_status' : 'contact_property'),
       client_id: props.original_ga4_client_id || ('crm.contact.' + contactId),
       event_time: occurredAt,
@@ -741,6 +748,14 @@ function enrichAndDispatchContact(contactId, propName, propValue, occurredAt, on
         external_id: contactId ? ('' + contactId) : '',
         email_address: props.email || '',
         phone_number: phoneVal,
+        em: props.email || '',
+        ph: phoneVal,
+        fn: props.firstname || '',
+        ln: props.lastname || '',
+        ct: props.city || '',
+        st: props.state || '',
+        zp: props.zip || '',
+        country: props.country || props.ip_country_code || '',
         address: {
           first_name: props.firstname || '',
           last_name: props.lastname || '',
@@ -753,6 +768,12 @@ function enrichAndDispatchContact(contactId, propName, propValue, occurredAt, on
         company: {
           id: props.associatedcompanyid || ''
         }
+      },
+
+      custom_data: {
+        value: monetaryValue,
+        currency: fallbackCurrency,
+        order_id: contactEventId
       },
 
       crm_details: crmDetailsObj,
@@ -893,11 +914,13 @@ function dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps,
 
   const eventData = {
     event_name: eventName,
+    action_source: 'system_generated',
     event_source_category: 'deal_pipeline',
     client_id: cProps.original_ga4_client_id || ('crm.deal.' + dealId),
     event_time: occurredAt,
     event_id: dealEventId,
     transaction_id: dealEventId,
+    order_id: dealEventId,
     external_id: contactId ? ('' + contactId) : '',
     value: dealAmount,
     currency: dealCurrency,
@@ -906,6 +929,14 @@ function dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps,
       external_id: contactId ? ('' + contactId) : '',
       email_address: cProps.email || '',
       phone_number: phoneVal,
+      em: cProps.email || '',
+      ph: phoneVal,
+      fn: cProps.firstname || '',
+      ln: cProps.lastname || '',
+      ct: cProps.city || '',
+      st: cProps.state || '',
+      zp: cProps.zip || '',
+      country: cProps.country || cProps.ip_country_code || '',
       address: {
         first_name: cProps.firstname || '',
         last_name: cProps.lastname || '',
@@ -918,6 +949,12 @@ function dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps,
       company: {
         id: cProps.associatedcompanyid || ''
       }
+    },
+
+    custom_data: {
+      value: dealAmount,
+      currency: dealCurrency,
+      order_id: dealEventId
     },
 
     crm_details: {

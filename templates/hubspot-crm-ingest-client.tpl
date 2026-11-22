@@ -733,10 +733,12 @@ function enrichAndDispatchContact(contactId, propName, propValue, occurredAt, on
       event_time: occurredAt,
       event_id: contactEventId,
       transaction_id: contactEventId,
+      external_id: contactId ? ('' + contactId) : '',
       value: monetaryValue,
       currency: fallbackCurrency,
 
       user_data: {
+        external_id: contactId ? ('' + contactId) : '',
         email_address: props.email || '',
         phone_number: phoneVal,
         address: {
@@ -896,10 +898,12 @@ function dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps,
     event_time: occurredAt,
     event_id: dealEventId,
     transaction_id: dealEventId,
+    external_id: contactId ? ('' + contactId) : '',
     value: dealAmount,
     currency: dealCurrency,
 
     user_data: {
+      external_id: contactId ? ('' + contactId) : '',
       email_address: cProps.email || '',
       phone_number: phoneVal,
       address: {

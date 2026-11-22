@@ -389,7 +389,8 @@ function getRequestedPropertyList() {
     list.push('hs_google_click_id', 'google_click_id', 'gclid', 'first_touch_gclid', 'last_touch_gclid', 'gbraid', 'wbraid');
   }
   if (enableMetaAds) {
-    list.push('hs_facebook_click_id', 'first_touch_fbclid', 'fbclid', 'fbc', 'fbp');
+    list.push('hs_facebook_click_id', 'first_touch_fbclid', 'fbclid', 'fbc', 'fbp',
+              'hs_facebook_ad_lead_id', 'hs_lead_id', 'facebook_lead_id', 'lead_id', 'fb_lead_id', 'meta_lead_id');
   }
   if (enableChatGptAds) {
     list.push('hs_chatgpt_click_id', 'chatgpt_click_id', 'oai_click_id');
@@ -456,6 +457,7 @@ function buildAttributionObject(props, occurredAt, eventData) {
     let rawFbc = props.fbc || '';
     let rawFbp = props.fbp || '';
     let fbclidVal = props.hs_facebook_click_id || props.first_touch_fbclid || props.fbclid || '';
+    let leadIdVal = props.hs_facebook_ad_lead_id || props.hs_lead_id || props.facebook_lead_id || props.lead_id || props.fb_lead_id || props.meta_lead_id || '';
     if (!fbclidVal && props.hs_analytics_last_url) {
       fbclidVal = extractUrlParam(props.hs_analytics_last_url, 'fbclid');
     }
@@ -525,6 +527,14 @@ function buildAttributionObject(props, occurredAt, eventData) {
     addParam('fbclid', fbclidVal);
     addParam('fbc', finalFbc);
     addParam('fbp', finalFbp);
+    if (leadIdVal) {
+      const sLeadId = '' + leadIdVal;
+      addParam('lead_id', sLeadId);
+      eventData.lead_id = sLeadId;
+      if (!eventData.custom_data) eventData.custom_data = {};
+      eventData.custom_data.lead_id = sLeadId;
+      if (eventData.user_data) eventData.user_data.lead_id = sLeadId;
+    }
     if (fbclidVal) eventData.fbclid = fbclidVal;
     if (finalFbc) {
       eventData.fbc = finalFbc;

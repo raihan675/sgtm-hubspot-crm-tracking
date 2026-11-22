@@ -481,17 +481,36 @@ function buildAttributionObject(props, occurredAt, eventData) {
       finalFbc = 'fb.1.' + creationTimeMs + '.' + fbclidVal;
     }
 
+    let finalFbp = '';
+    if (rawFbp) {
+      const sFbp = '' + rawFbp;
+      if (sFbp.indexOf('fb.') === 0) {
+        finalFbp = sFbp;
+      } else {
+        let creationTimeMs = occurredAt;
+        if (props.createdate) {
+          const cdNum = parseNumber(props.createdate);
+          if (cdNum > 1000000000000) {
+            creationTimeMs = cdNum;
+          } else if (cdNum > 0 && cdNum < 1000000000000) {
+            creationTimeMs = cdNum * 1000;
+          }
+        }
+        finalFbp = 'fb.1.' + creationTimeMs + '.' + sFbp;
+      }
+    }
+
     addParam('fbclid', fbclidVal);
     addParam('fbc', finalFbc);
-    addParam('fbp', rawFbp);
+    addParam('fbp', finalFbp);
     if (fbclidVal) eventData.fbclid = fbclidVal;
     if (finalFbc) {
       eventData.fbc = finalFbc;
       if (eventData.user_data) eventData.user_data.fbc = finalFbc;
     }
-    if (rawFbp) {
-      eventData.fbp = rawFbp;
-      if (eventData.user_data) eventData.user_data.fbp = rawFbp;
+    if (finalFbp) {
+      eventData.fbp = finalFbp;
+      if (eventData.user_data) eventData.user_data.fbp = finalFbp;
     }
   }
 

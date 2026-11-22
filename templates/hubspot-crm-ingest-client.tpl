@@ -602,6 +602,9 @@ function enrichAndDispatchContact(contactId, propName, propValue, occurredAt, on
   }
 
   const propList = getRequestedPropertyList();
+  if (propName && propList.indexOf(propName) === -1) {
+    propList.push(propName);
+  }
   const url = 'https://api.hubapi.com/crm/v3/objects/contacts/' + contactId + '?properties=' + propList.join(',');
 
   sendHttpRequest(url, {
@@ -644,7 +647,13 @@ function enrichAndDispatchContact(contactId, propName, propValue, occurredAt, on
     } else if (propName === 'num_associated_deals') {
       eventName = 'contact_deal_associated';
     } else {
-      eventName = 'crm_' + propName;
+      const sanitizedProp = (propName || '').toLowerCase();
+      const sanitizedVal = (propValue || '').toLowerCase();
+      if (sanitizedVal && sanitizedVal.length <= 30 && sanitizedVal.indexOf(' ') === -1) {
+        eventName = 'crm_' + sanitizedProp + '_' + sanitizedVal;
+      } else {
+        eventName = 'crm_' + sanitizedProp;
+      }
     }
 
     // Defensive check: never dispatch empty prefix events
@@ -717,7 +726,9 @@ function enrichAndDispatchContact(contactId, propName, propValue, occurredAt, on
 
       crm_details: crmDetailsObj,
       crm_lead_status: props.hs_lead_status || '',
-      crm_lifecycle_stage: props.lifecyclestage || ''
+      crm_lifecycle_stage: props.lifecyclestage || '',
+      custom_property_name: propName || '',
+      custom_property_value: propValue || ''
     };
 
     // Hydrate attribution according to user settings
@@ -753,7 +764,11 @@ function enrichAndDispatchDeal(dealId, propName, propValue, occurredAt, onComple
       if (results.length > 0) contactId = results[0].id;
     }
 
-    const dealUrl = 'https://api.hubapi.com/crm/v3/objects/deals/' + dealId + '?properties=amount,dealname,dealstage,pipeline,closedate,deal_currency_code';
+    let dealPropsQuery = 'amount,dealname,dealstage,pipeline,closedate,deal_currency_code';
+    if (propName && dealPropsQuery.indexOf(propName) === -1) {
+      dealPropsQuery = dealPropsQuery + ',' + propName;
+    }
+    const dealUrl = 'https://api.hubapi.com/crm/v3/objects/deals/' + dealId + '?properties=' + dealPropsQuery;
     sendHttpRequest(dealUrl, {
       method: 'GET',
       headers: {
@@ -806,7 +821,13 @@ function dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps,
   } else if (propName === 'amount') {
     eventName = 'deal_amount_updated';
   } else {
-    eventName = 'deal_' + propName;
+    const sanitizedProp = (propName || '').toLowerCase();
+    const sanitizedVal = (propValue || '').toLowerCase();
+    if (sanitizedVal && sanitizedVal.length <= 30 && sanitizedVal.indexOf(' ') === -1) {
+      eventName = 'deal_' + sanitizedProp + '_' + sanitizedVal;
+    } else {
+      eventName = 'deal_' + sanitizedProp;
+    }
   }
 
   // Defensive check: never dispatch empty prefix events
@@ -856,7 +877,9 @@ function dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps,
       currency: dealCurrency,
       closedate: dealProps.closedate || '',
       associated_contact_id: contactId || ''
-    }
+    },
+    custom_property_name: propName || '',
+    custom_property_value: propValue || ''
   };
 
   eventData.attribution = buildAttributionObject(cProps, occurredAt, eventData);

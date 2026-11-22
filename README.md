@@ -105,3 +105,36 @@ Change a lead status or lifecycle stage for any test contact in HubSpot. Inspect
 - Clean `user_data` without duplicate emails.
 - Structured `crm_details` with lifecycle milestone timestamps and revenue.
 - Clean `attribution` showing populated click IDs.
+
+---
+
+## Tracking Custom CRM Events & Properties
+
+The client template and project structure automatically support custom contact properties, custom deal properties, and custom pipeline stages.
+
+### 1. How Custom Events are Formatted in sGTM
+* **Custom Lifecycle Stages**: Automatically becomes `lifecycle_<stage_name>` (e.g., `lifecycle_trial_user`).
+* **Custom Lead Statuses**: Automatically becomes `lead_status_<status_name>` (e.g., `lead_status_demo_completed`).
+* **Custom Deal Stages**: Automatically becomes `deal_stage_<stage_name>` (e.g., `deal_stage_proposal_review`).
+* **Custom Contact Properties**: Formatted as `crm_<property>_<value>` (e.g., `crm_kyc_status_verified`) or `crm_<property>`.
+* **Custom Deal Properties**: Formatted as `deal_<property>_<value>` (e.g., `deal_contract_signed`) or `deal_<property>`.
+* **Data Layer Variables**: `custom_property_name` and `custom_property_value` are always exposed at the top level of Event Data.
+
+### 2. How to Subscribe to a Custom Property
+In `src/app/webhooks/webhooks-hsmeta.json`, add your custom property under `subscriptions.crmObjects`:
+
+```json
+{
+  "subscriptionType": "object.propertyChange",
+  "objectType": "contact",
+  "propertyName": "kyc_status",
+  "active": true
+}
+```
+
+Then deploy via terminal:
+```bash
+hs project upload
+hs project deploy --force
+```
+

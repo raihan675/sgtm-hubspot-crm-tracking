@@ -3,7 +3,7 @@
   "type": "webhooks",
   "config": {
     "settings": {
-      "targetUrl": "https://<YOUR-CONTAINER>.in.stape.io/hubspot-webhook",
+      "targetUrl": "https://acfgcyhr.in.stape.io/hubspot-webhook",
       "maxConcurrentRequests": 25
     },
     "subscriptions": {
@@ -50,3 +50,4 @@
     }
   }
 }
+

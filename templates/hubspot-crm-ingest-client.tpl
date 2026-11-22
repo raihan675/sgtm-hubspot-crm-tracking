@@ -698,12 +698,41 @@ function enrichAndDispatchContact(contactId, propName, propValue, occurredAt, on
       }
     };
 
+    let cleanMilestone = '';
+    if (propName === 'lifecyclestage') {
+      cleanMilestone = (propValue || 'LIFECYCLE').toUpperCase();
+    } else if (propName === 'hs_lead_status') {
+      cleanMilestone = 'STATUS_' + (propValue || 'LEAD').toUpperCase();
+    } else if (propName === 'engagements_last_meeting_booked') {
+      cleanMilestone = 'MEETING';
+    } else if (propName === 'num_associated_deals') {
+      cleanMilestone = 'DEAL_ASSOCIATED';
+    } else {
+      cleanMilestone = (propName + (propValue ? ('_' + propValue) : '')).toUpperCase();
+    }
+
+    let sanitizedMilestone = '';
+    const allowedChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+    for (let i = 0; i < cleanMilestone.length; i++) {
+      const c = cleanMilestone.charAt(i);
+      if (allowedChars.indexOf(c) !== -1) {
+        sanitizedMilestone += c;
+      } else if (c === ' ' || c === '-') {
+        sanitizedMilestone += '_';
+      }
+    }
+    if (sanitizedMilestone.length > 40) {
+      sanitizedMilestone = sanitizedMilestone.substring(0, 40);
+    }
+    const contactEventId = 'HS_' + contactId + '_' + sanitizedMilestone;
+
     const eventData = {
       event_name: eventName,
       event_source_category: (propName === 'lifecyclestage') ? 'lifecycle_stage' : ((propName === 'hs_lead_status') ? 'lead_status' : 'contact_property'),
       client_id: props.original_ga4_client_id || ('crm.contact.' + contactId),
       event_time: occurredAt,
-      transaction_id: 'HS_' + contactId + '_' + occurredAt,
+      event_id: contactEventId,
+      transaction_id: contactEventId,
       value: monetaryValue,
       currency: fallbackCurrency,
 
@@ -840,12 +869,33 @@ function dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps,
   const dealAmount = dealProps.amount ? parseNumber(dealProps.amount) : 0;
   const dealCurrency = dealProps.deal_currency_code || fallbackCurrency;
 
+  let dealEventId = 'DEAL_' + dealId;
+  if (propName === 'dealstage') {
+    const stageValUpper = (propValue || '').toUpperCase();
+    if (stageValUpper.indexOf('CLOSEDWON') !== -1 || stageValUpper === 'WON') {
+      dealEventId = 'DEAL_' + dealId;
+    } else {
+      let cleanStage = '';
+      const allowedDealChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+      for (let i = 0; i < stageValUpper.length; i++) {
+        const c = stageValUpper.charAt(i);
+        if (allowedDealChars.indexOf(c) !== -1) cleanStage += c;
+        else if (c === ' ' || c === '-') cleanStage += '_';
+      }
+      if (cleanStage.length > 30) cleanStage = cleanStage.substring(0, 30);
+      dealEventId = 'DEAL_' + dealId + '_' + cleanStage;
+    }
+  } else if (propName && propName !== 'amount') {
+    dealEventId = 'DEAL_' + dealId + '_' + propName.toUpperCase();
+  }
+
   const eventData = {
     event_name: eventName,
     event_source_category: 'deal_pipeline',
     client_id: cProps.original_ga4_client_id || ('crm.deal.' + dealId),
     event_time: occurredAt,
-    transaction_id: 'DEAL_' + dealId,
+    event_id: dealEventId,
+    transaction_id: dealEventId,
     value: dealAmount,
     currency: dealCurrency,
 

@@ -327,8 +327,6 @@ ___SANDBOXED_JS_FOR_SERVER___
 const getAllEventData = require('getAllEventData');
 const sendHttpRequest = require('sendHttpRequest');
 const sha256Sync = require('sha256Sync');
-const dataSuccess = require('dataSuccess');
-const dataFailure = require('dataFailure');
 const logToConsole = require('logToConsole');
 const getTimestampMillis = require('getTimestampMillis');
 const JSON = require('JSON');
@@ -345,7 +343,7 @@ const testEventCode = data.testEventCode;
 
 if (!datasetId || !accessToken) {
   logToConsole('Meta CRM CAPI Tag Error: Missing datasetId or accessToken.');
-  dataFailure();
+  data.gtmOnFailure();
   return;
 }
 
@@ -628,14 +626,14 @@ sendHttpRequest(requestUrl, {
   timeout: 4500
 }, postBody).then((res) => {
   if (res.statusCode >= 200 && res.statusCode < 300) {
-    dataSuccess();
+    data.gtmOnSuccess();
   } else {
     logToConsole('Meta CAPI Error Response [' + res.statusCode + ']: ' + res.body);
-    dataFailure();
+    data.gtmOnFailure();
   }
 }, (err) => {
   logToConsole('Meta CAPI Network Error: ' + JSON.stringify(err));
-  dataFailure();
+  data.gtmOnFailure();
 });
 
 ___SERVER_PERMISSIONS___

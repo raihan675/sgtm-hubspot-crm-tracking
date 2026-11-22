@@ -331,8 +331,7 @@ const logToConsole = require('logToConsole');
 const getTimestampMillis = require('getTimestampMillis');
 const encodeUriComponent = require('encodeUriComponent');
 const JSON = require('JSON');
-const Math = require('Math');
-const makeTableMap = require('makeTableMap');
+const makeInteger = require('makeInteger');
 
 const eventData = getAllEventData() || {};
 
@@ -419,9 +418,12 @@ let targetEventName = rawEventName;
 
 // Check user-configured custom stage overrides table first
 if (data.customStageOverrides && data.customStageOverrides.length > 0) {
-  const overridesMap = makeTableMap(data.customStageOverrides, 'crmEvent', 'metaEvent') || {};
-  if (overridesMap[rawEventName]) {
-    targetEventName = overridesMap[rawEventName];
+  for (let i = 0; i < data.customStageOverrides.length; i++) {
+    const row = data.customStageOverrides[i];
+    if (row && row.crmEvent === rawEventName && row.metaEvent) {
+      targetEventName = row.metaEvent;
+      break;
+    }
   }
 }
 
@@ -459,12 +461,12 @@ if (data.eventMode === 'CUSTOM' && data.customEventName) {
 }
 
 // 4. Resolve Event Time (Strictly 10-digit Unix Epoch Seconds)
-let eventTime = eventData.event_time;
-if (!eventTime) {
-  eventTime = getTimestampMillis();
-}
+let eventTime = eventData.event_time || getTimestampMillis();
+eventTime = parseNumber(eventTime);
 if (eventTime > 100000000000) {
-  eventTime = Math.floor(eventTime / 1000);
+  eventTime = makeInteger(eventTime / 1000);
+} else {
+  eventTime = makeInteger(eventTime);
 }
 
 // 5. Resolve Event ID & Action Source

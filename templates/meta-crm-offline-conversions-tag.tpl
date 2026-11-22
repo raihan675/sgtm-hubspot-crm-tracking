@@ -345,7 +345,12 @@ const sha256Sync = require('sha256Sync');
 const getTimestampMillis = require('getTimestampMillis');
 const encodeUriComponent = require('encodeUriComponent');
 const JSON = require('JSON');
+const getType = require('getType');
+const makeString = require('makeString');
+const makeNumber = require('makeNumber');
 const makeInteger = require('makeInteger');
+const Math = require('Math');
+const Promise = require('Promise');
 
 const eventData = getAllEventData() || {};
 
@@ -361,68 +366,57 @@ if (!datasetId || !accessToken) {
   return;
 }
 
-// 2. Normalization & Cryptographic Helper Functions
-function isSha256Hex(str) {
-  if (!str || typeof str !== 'string' || str.length !== 64) return false;
-  const hexChars = '0123456789abcdef';
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charAt(i).toLowerCase();
-    if (hexChars.indexOf(c) === -1) return false;
-  }
-  return true;
+// 2. Normalization & Cryptographic Helper Functions (Stape-aligned robust patterns)
+function isValidValue(value) {
+  const valueType = getType(value);
+  if (valueType === 'null' || valueType === 'undefined' || value !== value) return false;
+  return value !== '' && value !== 'undefined' && value !== 'null';
+}
+
+function isHashed(value) {
+  if (!value) return false;
+  return makeString(value).match('^[A-Fa-f0-9]{64}$') !== null;
 }
 
 function cleanString(val) {
-  if (!val || typeof val !== 'string') return '';
-  let start = 0;
-  for (let i = 0; i < val.length; i++) {
-    if (val.charAt(i) !== ' ') {
-      start = i;
-      break;
-    }
-  }
-  let end = val.length;
-  for (let j = val.length - 1; j >= start; j--) {
-    if (val.charAt(j) !== ' ') {
-      end = j + 1;
-      break;
-    }
-  }
-  return val.substring(start, end);
+  if (!isValidValue(val)) return '';
+  return makeString(val).trim();
 }
 
 function hashString(val) {
-  if (!val) return '';
+  if (!isValidValue(val)) return '';
   const cleaned = cleanString(val).toLowerCase();
-  if (isSha256Hex(cleaned)) return cleaned;
+  if (isHashed(cleaned)) return cleaned;
   return sha256Sync(cleaned, { outputEncoding: 'hex' });
 }
 
-function hashPhone(val) {
-  if (!val) return '';
-  const s = '' + val;
+function normalizePhoneNumber(phoneNumber) {
+  if (!isValidValue(phoneNumber)) return '';
+  const s = makeString(phoneNumber);
   let digits = '';
-  const allowed = '0123456789';
   for (let i = 0; i < s.length; i++) {
     const c = s.charAt(i);
-    if (allowed.indexOf(c) !== -1) digits += c;
+    if ('0123456789'.indexOf(c) !== -1) digits += c;
   }
+  return digits;
+}
+
+function hashPhone(val) {
+  if (!isValidValue(val)) return '';
+  const digits = normalizePhoneNumber(val);
   if (!digits) return '';
-  if (isSha256Hex(digits)) return digits;
+  if (isHashed(digits)) return digits;
   return sha256Sync(digits, { outputEncoding: 'hex' });
 }
 
-function parseNumber(val) {
-  if (typeof val === 'number') return val;
-  if (!val || typeof val !== 'string') return 0;
-  let result = '';
-  const allowed = '0123456789.-';
-  for (let i = 0; i < val.length; i++) {
-    const char = val.charAt(i);
-    if (allowed.indexOf(char) !== -1) result += char;
-  }
-  const num = result ? (result - 0) : 0;
-  return (num || num === 0) ? num : 0;
+function toFiniteNumber(value) {
+  if (!isValidValue(value)) return undefined;
+  const valueType = getType(value);
+  if (valueType !== 'number' && valueType !== 'string') return undefined;
+  if (valueType === 'string' && makeString(value).trim() === '') return undefined;
+  const parsed = makeNumber(value);
+  if (parsed * 0 !== 0) return undefined;
+  return parsed;
 }
 
 // 3. Resolve Meta Event Name
@@ -475,15 +469,15 @@ if (data.eventMode === 'CUSTOM' && data.customEventName) {
 
 // 4. Resolve Event Time (Strictly 10-digit Unix Epoch Seconds)
 let eventTime = eventData.event_time || getTimestampMillis();
-eventTime = parseNumber(eventTime);
-if (eventTime > 100000000000) {
-  eventTime = makeInteger(eventTime / 1000);
+const numEventTime = toFiniteNumber(eventTime) || Math.round(getTimestampMillis() / 1000);
+if (numEventTime > 100000000000) {
+  eventTime = Math.round(numEventTime / 1000);
 } else {
-  eventTime = makeInteger(eventTime);
+  eventTime = Math.round(numEventTime);
 }
 
 // 5. Resolve Event ID & Action Source
-const resolvedEventId = data.eventId || eventData.event_id || eventData.transaction_id || '';
+const resolvedEventId = cleanString(data.eventId || eventData.event_id || eventData.transaction_id || '');
 const resolvedActionSource = data.actionSource || eventData.action_source || 'system_generated';
 
 // 6. Build Customer Information Parameters (user_data)
@@ -493,11 +487,11 @@ const finalUserData = {};
 // Handle External ID (CRM Contact Record ID)
 let extId = '';
 if (data.userDataMode === 'MANUAL' && data.manualExternalId) {
-  extId = '' + data.manualExternalId;
+  extId = cleanString(data.manualExternalId);
 } else {
-  extId = '' + (rawUserData.external_id || eventData.external_id || '');
+  extId = cleanString(rawUserData.external_id || eventData.external_id || '');
 }
-if (extId && extId !== '') {
+if (extId) {
   finalUserData.external_id = [extId];
 }
 
@@ -532,7 +526,7 @@ if (data.userDataMode === 'MANUAL' && data.manualFbc) {
 } else {
   rawFbc = rawUserData.fbc || eventData.fbc || (eventData.attribution ? eventData.attribution.fbc : '');
 }
-if (rawFbc && rawFbc.indexOf('fb.') === 0) {
+if (rawFbc && makeString(rawFbc).indexOf('fb.') === 0) {
   finalUserData.fbc = cleanString(rawFbc);
 }
 
@@ -543,14 +537,14 @@ if (data.userDataMode === 'MANUAL' && data.manualFbp) {
 } else {
   rawFbp = rawUserData.fbp || eventData.fbp || (eventData.attribution ? eventData.attribution.fbp : '');
 }
-if (rawFbp && rawFbp.indexOf('fb.') === 0) {
+if (rawFbp && makeString(rawFbp).indexOf('fb.') === 0) {
   finalUserData.fbp = cleanString(rawFbp);
 }
 
 // Handle Meta Lead ID - NEVER HASH
 const rawLeadId = rawUserData.lead_id || eventData.lead_id || '';
 if (rawLeadId) {
-  finalUserData.lead_id = '' + rawLeadId;
+  finalUserData.lead_id = makeString(rawLeadId);
 }
 
 // Handle First & Last Name
@@ -590,10 +584,12 @@ if (rawCountry) {
 // 7. Build Conversion Financial Parameters (custom_data)
 const finalCustomData = {};
 if (data.enableCustomData !== false) {
-  const valSource = (data.conversionValue !== undefined && data.conversionValue !== null && data.conversionValue !== '') ? data.conversionValue : eventData.value;
-  const numVal = parseNumber(valSource);
-  if (numVal > 0 || targetEventName === 'Purchase') {
+  const valSource = isValidValue(data.conversionValue) ? data.conversionValue : eventData.value;
+  const numVal = toFiniteNumber(valSource);
+  if (numVal !== undefined && numVal > 0) {
     finalCustomData.value = numVal;
+  } else if (targetEventName === 'Purchase') {
+    finalCustomData.value = 0;
   }
   
   const curSource = data.currencyCode || eventData.currency || 'USD';
@@ -603,7 +599,7 @@ if (data.enableCustomData !== false) {
   
   const ordSource = data.orderId || eventData.order_id || eventData.transaction_id || resolvedEventId;
   if (ordSource) {
-    finalCustomData.order_id = '' + ordSource;
+    finalCustomData.order_id = makeString(ordSource);
   }
   
   if (data.contentCategory) {
@@ -640,24 +636,26 @@ if (testEventCode) {
 }
 
 // 9. Dispatch to Meta Graph API v21.0
-const requestUrl = apiEndpoint + '/' + apiVersion + '/' + encodeUriComponent(datasetId) + '/events?access_token=' + encodeUriComponent(accessToken);
+const requestUrl = apiEndpoint + '/' + apiVersion + '/' + encodeUriComponent(datasetId) + '/events?access_token=' + encodeUriComponent(accessToken) + (testEventCode ? '&test_event_code=' + encodeUriComponent(testEventCode) : '');
 const postBody = JSON.stringify(payload);
 
 sendHttpRequest(requestUrl, {
   method: 'POST',
   headers: {
-    'Content-Type': 'application/json'
+    'content-type': 'application/json'
   },
-  timeout: 4500
-}, postBody).then((res) => {
-  if (res.statusCode >= 200 && res.statusCode < 300) {
-    data.gtmOnSuccess();
-  } else {
+  timeout: 5000
+}, postBody)
+  .then((res) => {
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      data.gtmOnSuccess();
+    } else {
+      data.gtmOnFailure();
+    }
+  })
+  .catch((err) => {
     data.gtmOnFailure();
-  }
-}, (err) => {
-  data.gtmOnFailure();
-});
+  });
 
 
 ___SERVER_PERMISSIONS___
@@ -719,3 +717,4 @@ ___NOTES___
   - HubSpot CRM lifecycle stages, deal stages, and meeting booked auto-mapping.
   - Zero DOM scraping, authoritative backend data ingestion.
   - Compliant with Meta Graph API v21.0 CRM offline conversion specifications.
+  - Applied robust Sandboxed JS patterns (isValidValue, isHashed, toFiniteNumber, normalizePhoneNumber).

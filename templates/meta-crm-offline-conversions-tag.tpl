@@ -1,3 +1,11 @@
+___TERMS_OF_SERVICE___
+
+By creating or modifying this file you agree to Google Tag Manager's Community
+Template Gallery Developer Terms of Service available at
+https://developers.google.com/tag-manager/gallery-tos (or such other URL as
+Google may provide), as modified from time to time.
+
+
 ___INFO___
 
 {
@@ -6,6 +14,11 @@ ___INFO___
   "version": 1,
   "securityGroups": [],
   "displayName": "Meta CRM Offline Conversions",
+  "categories": [
+    "ADVERTISING",
+    "CONVERSIONS",
+    "MARKETING"
+  ],
   "description": "Specialized Meta Conversions API (CAPI) tag for Server-Side GTM, optimized for HubSpot CRM offline conversions, automated lifecycle mapping, and high match quality.",
   "containerContexts": [
     "SERVER"
@@ -114,18 +127,21 @@ ___TEMPLATE_PARAMETERS___
         "type": "SIMPLE_TABLE",
         "name": "customStageOverrides",
         "displayName": "Custom CRM Event Overrides (Optional)",
-        "columns": [
+        "simpleTableColumns": [
           {
+            "defaultValue": "",
+            "displayName": "Incoming CRM Event Name",
             "name": "crmEvent",
-            "label": "Incoming CRM Event Name",
             "type": "TEXT"
           },
           {
+            "defaultValue": "",
+            "displayName": "Target Meta Standard/Custom Event",
             "name": "metaEvent",
-            "label": "Target Meta Standard/Custom Event",
             "type": "TEXT"
           }
         ],
+        "newRowButtonText": "Add Override",
         "help": "Override specific CRM event names to custom Meta events (e.g. crm_kyc_verified -> CompleteRegistration)."
       },
       {
@@ -148,40 +164,39 @@ ___TEMPLATE_PARAMETERS___
           }
         ],
         "simpleValueType": true,
-        "help": "Offline CRM events must use system_generated to instruct Meta that conversions occurred in backend systems."
+        "help": "Must be system_generated for server-to-server CRM offline conversions."
       },
       {
         "type": "TEXT",
         "name": "eventId",
         "displayName": "Event ID (Deduplication Key)",
-        "defaultValue": "{{Event Data - event_id}}",
         "simpleValueType": true,
-        "help": "Server-side Idempotency Shield. Prevents double-counting from webhook retries or CRM double-clicks."
+        "help": "Leave empty to automatically inherit from Event Data (event_id or transaction_id)."
       }
     ]
   },
   {
     "type": "GROUP",
     "name": "userDataGroup",
-    "displayName": "Customer Information Parameters (user_data)",
+    "displayName": "Customer Matching Parameters (user_data)",
     "subParams": [
       {
         "type": "SELECT",
         "name": "userDataMode",
-        "displayName": "Customer Data Ingestion Mode",
-        "defaultValue": "INHERIT_AND_NORMALIZE",
+        "displayName": "Customer Data Source",
+        "defaultValue": "AUTO",
         "selectItems": [
           {
-            "value": "INHERIT_AND_NORMALIZE",
-            "displayValue": "Auto-Inherit from Event Data & Cryptographically Hash PII (Recommended)"
+            "value": "AUTO",
+            "displayValue": "Auto-Extract from Event Data (Recommended)"
           },
           {
             "value": "MANUAL",
-            "displayValue": "Manual Variable Mapping"
+            "displayValue": "Manually Map Fields"
           }
         ],
         "simpleValueType": true,
-        "help": "Auto-Inherit automatically normalizes and SHA-256 hashes email/phone while preserving fbc, fbp, and external_id."
+        "help": "Auto mode extracts em, ph, external_id, fbc, fbp from event_data.user_data or top-level event fields."
       },
       {
         "type": "TEXT",
@@ -266,21 +281,6 @@ ___TEMPLATE_PARAMETERS___
         "type": "TEXT",
         "name": "conversionValue",
         "displayName": "Monetary Value",
-        "defaultValue": "{{Event Data - value}}",
-        "simpleValueType": true,
-        "enablingConditions": [
-          {
-            "paramName": "enableCustomData",
-            "paramValue": true,
-            "type": "EQUALS"
-          }
-        ]
-      },
-      {
-        "type": "TEXT",
-        "name": "currencyCode",
-        "displayName": "Currency Code",
-        "defaultValue": "{{Event Data - currency}}",
         "simpleValueType": true,
         "enablingConditions": [
           {
@@ -289,13 +289,13 @@ ___TEMPLATE_PARAMETERS___
             "type": "EQUALS"
           }
         ],
-        "help": "3-letter uppercase ISO currency code (e.g. USD, EUR, AUD)."
+        "help": "Leave empty to automatically inherit from event data (eventData.value)."
       },
       {
         "type": "TEXT",
-        "name": "orderId",
-        "displayName": "Order / Deal ID",
-        "defaultValue": "{{Event Data - transaction_id}}",
+        "name": "currencyCode",
+        "displayName": "Currency Code",
+        "defaultValue": "USD",
         "simpleValueType": true,
         "enablingConditions": [
           {
@@ -303,7 +303,22 @@ ___TEMPLATE_PARAMETERS___
             "paramValue": true,
             "type": "EQUALS"
           }
-        ]
+        ],
+        "help": "3-letter uppercase ISO currency code (default: USD). Automatically inherits if eventData.currency is present."
+      },
+      {
+        "type": "TEXT",
+        "name": "orderId",
+        "displayName": "Order / Deal ID",
+        "simpleValueType": true,
+        "enablingConditions": [
+          {
+            "paramName": "enableCustomData",
+            "paramValue": true,
+            "type": "EQUALS"
+          }
+        ],
+        "help": "Leave empty to automatically inherit from transaction_id or order_id."
       },
       {
         "type": "TEXT",
@@ -327,7 +342,6 @@ ___SANDBOXED_JS_FOR_SERVER___
 const getAllEventData = require('getAllEventData');
 const sendHttpRequest = require('sendHttpRequest');
 const sha256Sync = require('sha256Sync');
-const logToConsole = require('logToConsole');
 const getTimestampMillis = require('getTimestampMillis');
 const encodeUriComponent = require('encodeUriComponent');
 const JSON = require('JSON');
@@ -343,7 +357,6 @@ const apiVersion = data.apiVersion || 'v21.0';
 const testEventCode = data.testEventCode;
 
 if (!datasetId || !accessToken) {
-  logToConsole('Meta CRM CAPI Tag Error: Missing datasetId or accessToken.');
   data.gtmOnFailure();
   return;
 }
@@ -577,7 +590,7 @@ if (rawCountry) {
 // 7. Build Conversion Financial Parameters (custom_data)
 const finalCustomData = {};
 if (data.enableCustomData !== false) {
-  const valSource = (data.conversionValue !== undefined && data.conversionValue !== null) ? data.conversionValue : eventData.value;
+  const valSource = (data.conversionValue !== undefined && data.conversionValue !== null && data.conversionValue !== '') ? data.conversionValue : eventData.value;
   const numVal = parseNumber(valSource);
   if (numVal > 0 || targetEventName === 'Purchase') {
     finalCustomData.value = numVal;
@@ -640,13 +653,12 @@ sendHttpRequest(requestUrl, {
   if (res.statusCode >= 200 && res.statusCode < 300) {
     data.gtmOnSuccess();
   } else {
-    logToConsole('Meta CAPI Error Response [' + res.statusCode + ']: ' + res.body);
     data.gtmOnFailure();
   }
 }, (err) => {
-  logToConsole('Meta CAPI Network Error: ' + JSON.stringify(err));
   data.gtmOnFailure();
 });
+
 
 ___SERVER_PERMISSIONS___
 
@@ -658,18 +670,6 @@ ___SERVER_PERMISSIONS___
         "versionId": "1"
       },
       "param": [
-        {
-          "key": "keyPatterns",
-          "value": {
-            "type": 2,
-            "listItem": [
-              {
-                "type": 1,
-                "string": ".*"
-              }
-            ]
-          }
-        },
         {
           "key": "eventDataAccess",
           "value": {
@@ -704,26 +704,18 @@ ___SERVER_PERMISSIONS___
       "isEditedByUser": true
     },
     "isRequired": true
-  },
-  {
-    "instance": {
-      "key": {
-        "publicId": "logging",
-        "versionId": "1"
-      },
-      "param": [
-        {
-          "key": "environments",
-          "value": {
-            "type": 1,
-            "string": "all"
-          }
-        }
-      ]
-    },
-    "clientAnnotations": {
-      "isEditedByUser": true
-    },
-    "isRequired": true
   }
 ]
+
+___TESTS___
+
+scenarios: []
+
+
+___NOTES___
+
+2026-11-22 Change Notes:
+  - Enterprise Meta CRM Offline Conversions Tag Template for Server-Side GTM.
+  - HubSpot CRM lifecycle stages, deal stages, and meeting booked auto-mapping.
+  - Zero DOM scraping, authoritative backend data ingestion.
+  - Compliant with Meta Graph API v21.0 CRM offline conversion specifications.

@@ -9,14 +9,15 @@ Universal enterprise tracking integration connecting HubSpot CRM lifecycle stage
 ```
 sgtm-hubspot-crm-tracking/
 ├── templates/
-│   └── hubspot-crm-ingest-client.tpl   # Custom Client Template for sGTM
+│   ├── hubspot-crm-ingest-client.tpl        # Custom Ingestion Client Template for sGTM
+│   └── meta-crm-offline-conversions-tag.tpl # Custom Meta CAPI Tag Template for sGTM
 ├── src/
 │   └── app/
-│       ├── app-hsmeta.json             # HubSpot Developer App Definition & Permissions
+│       ├── app-hsmeta.json                  # HubSpot Developer App Definition & Permissions
 │       └── webhooks/
-│           └── webhooks-hsmeta.json    # Webhook Subscriptions & Target sGTM URL
-├── hsproject.json                      # HubSpot Project Configuration
-└── README.md                           # Universal Setup & Deployment Guide
+│           └── webhooks-hsmeta.json         # Webhook Subscriptions & Target sGTM URL
+├── hsproject.json                           # HubSpot Project Configuration
+└── README.md                                # Universal Setup & Deployment Guide
 ```
 
 ---
@@ -99,12 +100,34 @@ hs project deploy --account=<ACCOUNT_NAME>
 
 ---
 
-### 7. Test in GTM Preview
-Change a lead status or lifecycle stage for any test contact in HubSpot. Inspect the event in GTM Preview mode:
-- Single event fires (e.g., `lifecycle_sql`, `lead_status_in_progress`).
-- Clean `user_data` without duplicate emails.
-- Structured `crm_details` with lifecycle milestone timestamps and revenue.
-- Clean `attribution` showing populated click IDs.
+### 7. Import & Configure the Meta CRM Offline Conversions Tag
+1. In your Server-Side GTM container, navigate to **Templates** $\rightarrow$ **Tag Templates** $\rightarrow$ click **New**.
+2. Click **⋮ (three dots)** in the top right $\rightarrow$ **Import**.
+3. Choose `templates/meta-crm-offline-conversions-tag.tpl` from this repository.
+4. Click **Save** and close the template editor.
+5. In sGTM, go to **Tags** $\rightarrow$ click **New** $\rightarrow$ select **Meta CRM Offline Conversions**.
+6. Enter configuration:
+   * **Meta Dataset ID / Pixel ID**: Enter your 15-16 digit Meta Dataset ID.
+   * **System User Access Token**: Paste your Conversions API permanent access token.
+   * **Test Event Code** *(Optional)*: Enter your test code (e.g. `TEST12345`) while in debugging mode.
+   * **Event Name Resolution Mode**: Keep `Auto-Map CRM Lifecycle & Deal Events to Meta Standards` (Recommended).
+   * **Customer Data Ingestion Mode**: Keep `Auto-Inherit from Event Data & Cryptographically Hash PII`.
+7. Set Trigger:
+   * Create a Custom Event trigger where **`Client Name` equals `HubSpot CRM Client`**.
+8. Click **Save** and **Publish** the container.
+
+---
+
+### 8. End-to-End Test in GTM Preview & Meta Events Manager
+1. Change a lead status, lifecycle stage, or deal stage for any test contact in HubSpot.
+2. Inspect the event in Server GTM Preview:
+   - Client claims webhook and parses data layer.
+   - Tag fires: **Meta CRM Offline Conversions** executes with HTTP 200.
+   - Check `user_data`: `em`, `ph` are SHA-256 hashed; `fbc`, `fbp`, and `external_id` remain plaintext.
+   - For deals/revenue: `custom_data.value`, `currency`, and `order_id` are populated.
+3. Open **Meta Events Manager** $\rightarrow$ **Test Events**:
+   - Verify incoming event (e.g., `SubmitApplication`, `Purchase`, or `InitiateCheckout`).
+   - Check **Event Match Quality (EMQ)** rating is elevated ($\ge 8.5/10$).
 
 ---
 

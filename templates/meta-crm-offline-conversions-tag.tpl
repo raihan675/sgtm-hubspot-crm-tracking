@@ -331,6 +331,7 @@ const logToConsole = require('logToConsole');
 const getTimestampMillis = require('getTimestampMillis');
 const encodeUriComponent = require('encodeUriComponent');
 const JSON = require('JSON');
+const Math = require('Math');
 const makeTableMap = require('makeTableMap');
 
 const eventData = getAllEventData() || {};

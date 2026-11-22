@@ -329,6 +329,7 @@ const sendHttpRequest = require('sendHttpRequest');
 const sha256Sync = require('sha256Sync');
 const logToConsole = require('logToConsole');
 const getTimestampMillis = require('getTimestampMillis');
+const encodeUriComponent = require('encodeUriComponent');
 const JSON = require('JSON');
 const makeTableMap = require('makeTableMap');
 
@@ -614,13 +615,12 @@ if (testEventCode) {
 }
 
 // 9. Dispatch to Meta Graph API v21.0
-const requestUrl = apiEndpoint + '/' + apiVersion + '/' + datasetId + '/events';
+const requestUrl = apiEndpoint + '/' + apiVersion + '/' + encodeUriComponent(datasetId) + '/events?access_token=' + encodeUriComponent(accessToken);
 const postBody = JSON.stringify(payload);
 
 sendHttpRequest(requestUrl, {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer ' + accessToken,
     'Content-Type': 'application/json'
   },
   timeout: 4500

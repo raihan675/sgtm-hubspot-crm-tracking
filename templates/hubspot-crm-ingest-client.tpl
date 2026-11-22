@@ -306,16 +306,33 @@ events.forEach((evt) => {
   const objectId = evt.objectId;
   const propertyName = evt.propertyName;
   const propertyValue = evt.propertyValue;
-  const occurredAt = evt.occurredAt || getTimestampMillis();
+
+  let rawTime = parseNumber(evt.occurredAt);
+  if (!rawTime || rawTime <= 0) {
+    rawTime = getTimestampMillis();
+  }
+  let occurredAtMs = rawTime;
+  let eventTimeSec = rawTime;
+
+  if (rawTime > 9999999999) {
+    // HubSpot webhook sends Unix timestamp in milliseconds (13 digits: e.g. 1795363141589)
+    occurredAtMs = rawTime;
+    eventTimeSec = (rawTime - (rawTime % 1000)) / 1000;
+  } else {
+    // If timestamp was already in seconds (10 digits: e.g. 1795363141)
+    occurredAtMs = rawTime * 1000;
+    eventTimeSec = rawTime - (rawTime % 1);
+  }
+
   const isDeal = (evt.objectTypeId === '0-3') || (evt.subscriptionType && evt.subscriptionType.indexOf('deal') !== -1);
   const isContact = (evt.objectTypeId === '0-1') || (evt.subscriptionType && evt.subscriptionType.indexOf('contact') !== -1);
 
   if (isContact) {
-    enrichAndDispatchContact(objectId, propertyName, propertyValue, occurredAt, checkDone);
+    enrichAndDispatchContact(objectId, propertyName, propertyValue, eventTimeSec, occurredAtMs, checkDone);
   } else if (isDeal) {
-    enrichAndDispatchDeal(objectId, propertyName, propertyValue, occurredAt, checkDone);
+    enrichAndDispatchDeal(objectId, propertyName, propertyValue, eventTimeSec, occurredAtMs, checkDone);
   } else {
-    enrichAndDispatchContact(objectId, propertyName, propertyValue, occurredAt, checkDone);
+    enrichAndDispatchContact(objectId, propertyName, propertyValue, eventTimeSec, occurredAtMs, checkDone);
   }
 });
 
@@ -617,7 +634,7 @@ function buildAttributionObject(props, occurredAt, eventData) {
   return attr;
 }
 
-function enrichAndDispatchContact(contactId, propName, propValue, occurredAt, onComplete) {
+function enrichAndDispatchContact(contactId, propName, propValue, eventTimeSec, occurredAtMs, onComplete) {
   if (propName === 'lifecyclestage' && !enableLifecycle) {
     onComplete();
     return;
@@ -761,7 +778,11 @@ function enrichAndDispatchContact(contactId, propName, propValue, occurredAt, on
       action_source: 'system_generated',
       event_source_category: (propName === 'lifecyclestage') ? 'lifecycle_stage' : ((propName === 'hs_lead_status') ? 'lead_status' : 'contact_property'),
       client_id: props.original_ga4_client_id || ('crm.contact.' + contactId),
-      event_time: occurredAt,
+      event_time: eventTimeSec,
+      event_time_seconds: eventTimeSec,
+      event_time_ms: occurredAtMs,
+      occurred_at: occurredAtMs,
+      occurred_at_seconds: eventTimeSec,
       event_id: contactEventId,
       transaction_id: contactEventId,
       external_id: contactId ? ('' + contactId) : '',
@@ -808,13 +829,13 @@ function enrichAndDispatchContact(contactId, propName, propValue, occurredAt, on
     };
 
     // Hydrate attribution according to user settings
-    eventData.attribution = buildAttributionObject(props, occurredAt, eventData);
+    eventData.attribution = buildAttributionObject(props, occurredAtMs, eventData);
 
     runContainer(eventData, onComplete);
   }, onComplete);
 }
 
-function enrichAndDispatchDeal(dealId, propName, propValue, occurredAt, onComplete) {
+function enrichAndDispatchDeal(dealId, propName, propValue, eventTimeSec, occurredAtMs, onComplete) {
   if (!enableDeals) {
     onComplete();
     return;
@@ -873,18 +894,18 @@ function enrichAndDispatchDeal(dealId, propName, propValue, occurredAt, onComple
           if (cRes.statusCode === 200) {
             cProps = JSON.parse(cRes.body).properties || {};
           }
-          dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps, occurredAt, onComplete);
+          dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps, eventTimeSec, occurredAtMs, onComplete);
         }, () => {
-          dispatchDeal(dealId, contactId, propName, propValue, dealProps, {}, occurredAt, onComplete);
+          dispatchDeal(dealId, contactId, propName, propValue, dealProps, {}, eventTimeSec, occurredAtMs, onComplete);
         });
       } else {
-        dispatchDeal(dealId, null, propName, propValue, dealProps, {}, occurredAt, onComplete);
+        dispatchDeal(dealId, null, propName, propValue, dealProps, {}, eventTimeSec, occurredAtMs, onComplete);
       }
     }, onComplete);
   }, onComplete);
 }
 
-function dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps, occurredAt, onComplete) {
+function dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps, eventTimeSec, occurredAtMs, onComplete) {
   let eventName = null;
   const stageVal = (propValue || '').toLowerCase();
   if (propName === 'dealstage') {
@@ -941,7 +962,11 @@ function dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps,
     action_source: 'system_generated',
     event_source_category: 'deal_pipeline',
     client_id: cProps.original_ga4_client_id || ('crm.deal.' + dealId),
-    event_time: occurredAt,
+    event_time: eventTimeSec,
+    event_time_seconds: eventTimeSec,
+    event_time_ms: occurredAtMs,
+    occurred_at: occurredAtMs,
+    occurred_at_seconds: eventTimeSec,
     event_id: dealEventId,
     transaction_id: dealEventId,
     order_id: dealEventId,
@@ -997,7 +1022,7 @@ function dispatchDeal(dealId, contactId, propName, propValue, dealProps, cProps,
     custom_property_value: propValue || ''
   };
 
-  eventData.attribution = buildAttributionObject(cProps, occurredAt, eventData);
+  eventData.attribution = buildAttributionObject(cProps, occurredAtMs, eventData);
 
   runContainer(eventData, onComplete);
 }
@@ -1131,3 +1156,4 @@ HubSpot CRM Ingest Client with customizable ad attribution toggles and clean eve
 - Added granular Attribution toggles: Meta, Google, ChatGPT, TikTok, LinkedIn, Bing, Reddit, Twitter, Pinterest, Snapchat, UTMs.
 - Added Omit Empty Attribution Parameters: suppresses empty string keys from the preview debugger.
 - Sandboxed JS strictly compliant: zero try/catch, zero regex literals.
+- Normalized event_time strictly to 10-digit integer Unix timestamp in seconds (Meta CAPI & standard sGTM format), while retaining 13-digit milliseconds in occurred_at_ms for synthetic Meta _fbc/_fbp generation.
